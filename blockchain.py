@@ -90,6 +90,17 @@ class BlockChain(object):
         logging.info({'action': 'minig', 'status': 'success'})
         return True
 
+    def calculate_total_amount(self, blockchain_address):
+        total_amount = 0.0
+        for block in self.chain:
+            for transaction in block['transactions']:
+                value = float(transaction['value'])
+                # 受け取るためプラス
+                if blockchain_address == transaction['recipient_blockchain_address']:
+                    total_amount += value
+                if blockchain_address == transaction['sender_blockchain_address']:
+                    total_amount -= value
+        return total_amount
 
 if __name__ == '__main__':
     my_blockchain_address = 'my_blockchain_address'
@@ -109,6 +120,10 @@ if __name__ == '__main__':
     # block_chain.create_block(nonce, previous_hash)
 
     utils.pprint(block_chain.chain)
+
+    print('my', block_chain.calculate_total_amount(my_blockchain_address))
+    print('C', block_chain.calculate_total_amount('C'))
+    print('D', block_chain.calculate_total_amount('D'))
 
 
 
