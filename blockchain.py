@@ -4,6 +4,10 @@ import logging
 import sys
 import time
 
+# 3rd party
+from ecdsa import NIST256p
+from ecdsa import VerifyingKey
+
 import utils
 
 MINING_DIFFICULTY = 3
@@ -44,15 +48,38 @@ class BlockChain(object):
 
     # トランザクションを作る
     def add_transaction(self, sender_blockchain_address,
-                        recipient_blockchain_address, value):
+                        recipient_blockchain_address, value,
+                        sender_public_key=None, signature=None):
         # valueは小数点がくるためfloat
         transaction = utils.sorted_dict_by_key({
             'sender_blockchain_address': sender_blockchain_address,
             'recipient_blockchain_address': recipient_blockchain_address,
             'value': float(value)
         })
-        self.transaction_pool.append(transaction)
-        return True
+
+        # マイニング処理の場合
+        if sender_blockchain_address == MINING_SENDER:
+            self.transaction_pool.append(transaction)
+            return True
+
+        # signatureをチェック
+        if self.verify_transaction_signature(
+                sender_public_key, signature, transaction):
+            self.transaction_pool.append(transaction)
+            return True
+        return False
+
+    # 受け取るトランザクションの証明
+    def verify_transaction_signature(
+            self, sender_public_key, signature, transaction):
+        sha256 = hashlib.sha256()
+        sha256.update(str(transaction).encode('utf-8'))
+        message = sha256.digest()
+        signature_bytes = bytes().fromhex(signature)
+        verifying_key = VerifyingKey.from_string(
+            bytes().fromhex(sender_public_key), curve=NIST256p)
+        verified_key = verifying_key.verify(signature_bytes, message)
+        return  verified_key
 
     # コンセンサスアルゴリズムの計算
     def valid_proof(self, transactions, previous_hash, nonce,
@@ -80,11 +107,12 @@ class BlockChain(object):
 
     # マイニング
     def mining(self):
+        # ブロックチェーンNode側で処理するブロック
+        nonce = self.proof_of_work()
         self.add_transaction(
             sender_blockchain_address=MINING_SENDER,
             recipient_blockchain_address=self.blockchain_address,
             value=MINING_REWARD)
-        nonce = self.proof_of_work()
         previous_hash = self.hash(self.chain[-1])
         self.create_block(nonce, previous_hash)
         logging.info({'action': 'minig', 'status': 'success'})
@@ -102,6 +130,7 @@ class BlockChain(object):
                     total_amount -= value
         return total_amount
 
+'''
 if __name__ == '__main__':
     my_blockchain_address = 'my_blockchain_address'
     block_chain = BlockChain(blockchain_address=my_blockchain_address)
@@ -124,7 +153,7 @@ if __name__ == '__main__':
     print('my', block_chain.calculate_total_amount(my_blockchain_address))
     print('C', block_chain.calculate_total_amount('C'))
     print('D', block_chain.calculate_total_amount('D'))
-
+'''
 
 
 
